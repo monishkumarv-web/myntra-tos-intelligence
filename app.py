@@ -18,7 +18,6 @@ import urllib.parse
 # ─────────────────────────────────────────────────────────────────────────────
 st.set_page_config(page_title="Myntra TOS Intelligence Dashboard", layout="wide")
 
-# Fixed for Cloud Architecture: Using a relative path instead of local C:\ drive
 OUTPUT_CSV   = "dashboard_cache.csv"
 TARGET_BRAND = "CULT"
 
@@ -27,16 +26,10 @@ st.markdown(
     """
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-        
-        /* Global typography smoothing */
         .stApp { font-family: 'Inter', sans-serif; }
-        
-        /* Dashboard Hero Banner */
         .dashboard-banner { background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); color: #ffffff; padding: 32px; border-radius: 12px; margin-bottom: 30px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); }
         .dashboard-banner h1 { color: #ffffff !important; font-size: 28px; font-weight: 700; margin: 0; letter-spacing: -0.5px; }
         .dashboard-banner p { color: #94a3b8 !important; margin: 8px 0 0 0; font-size: 14px; }
-        
-        /* Executive Analytics Grid */
         .analytics-container { display: flex; gap: 20px; margin-bottom: 35px; }
         .analytics-card { background: #ffffff !important; border: 1px solid #e2e8f0; border-radius: 10px; padding: 20px; flex: 1; box-shadow: 0 1px 3px rgba(0,0,0,0.02); position: relative; overflow: hidden; }
         .analytics-card::before { content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 100%; background: #cbd5e1; }
@@ -47,21 +40,15 @@ st.markdown(
         .analytics-card .lbl { font-size: 12px; color: #64748b !important; text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px; }
         .analytics-card .val { font-size: 28px; font-weight: 700; color: #0f172a !important; margin: 6px 0 2px 0; }
         .analytics-card .sub { font-size: 11px; color: #94a3b8 !important; }
-        
-        /* Modern Activity Stream Component Cards */
         .stream-card { background: #ffffff !important; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.02); transition: transform 0.2s ease; }
         .stream-card:hover { transform: translateY(-2px); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
         .stream-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #f1f5f9; padding-bottom: 12px; margin-bottom: 14px; }
         .stream-title { font-size: 16px; font-weight: 600; color: #0f172a !important; margin: 0; }
-        
-        /* Status Badges Component */
         .pill { padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; }
         .pill-green { background: #dcfce7 !important; color: #15803d !important; }
         .pill-orange { background: #ffedd5 !important; color: #c2410c !important; }
         .pill-red { background: #fee2e2 !important; color: #b91c1c !important; }
         .pill-dark { background: #f1f5f9 !important; color: #334155 !important; font-family: monospace; }
-        
-        /* Metadata Information Layout Grid */
         .meta-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
         .meta-item { font-size: 13px; color: #334155 !important; }
         .meta-label { color: #64748b !important; font-size: 11px; font-weight: 500; text-transform: uppercase; margin-bottom: 2px; }
@@ -73,7 +60,7 @@ st.markdown(
 )
 
 # ─────────────────────────────────────────────────────────────────────────────
-# ⚙️ AUTOMATION PIPELINE LAYER (SELENIUM CORE ENGINE)
+# ⚙️ AUTOMATION PIPELINE LAYER (SELENIUM CORE ENGINE WITH STEALTH PROPERTIES)
 # ─────────────────────────────────────────────────────────────────────────────
 def run_live_scraper(keywords):
     if not keywords:
@@ -86,7 +73,6 @@ def run_live_scraper(keywords):
         except:
             pass
 
-    # 🔧 STREAMLIT CLOUD COMPATIBLE CHROME CONFIGURATION
     options = Options()
     options.add_argument("--headless=new")       
     options.add_argument("--disable-gpu")
@@ -95,15 +81,27 @@ def run_live_scraper(keywords):
     options.add_argument("--window-size=1920,1080")
     options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
     
-    # Point directly to the Linux package installs on the Streamlit server
+    # 🕵️ INJECT ANTI-DETECTION STEALTH ARGUMENTS
+    options.add_argument("--disable-blink-features=AutomationControlled")
+    options.add_experimental_option("excludeSwitches", ["enable-automation"])
+    options.add_experimental_option('useAutomationExtension', False)
+    
     options.binary_location = "/usr/bin/chromium"
     service = Service("/usr/bin/chromedriver")
     
     progress_bar = st.progress(0.0)
     status_text = st.empty()
 
-    # Launch driver natively without using ChromeDriverManager()
     driver = webdriver.Chrome(service=service, options=options)
+    
+    # Override navigator.webdriver signature flags via CDP
+    try:
+        driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
+            "source": "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
+        })
+    except:
+        pass
+        
     all_results = []
     
     try:
@@ -121,14 +119,15 @@ def run_live_scraper(keywords):
             
             try:
                 driver.get(search_url)
-                time.sleep(3.5)
+                time.sleep(4.5)  # Slightly longer breathing room for Cloud routing
                 
                 driver.execute_script("window.scrollTo(0, document.body.scrollHeight/3);")
                 time.sleep(1)
                 driver.execute_script("window.scrollTo(0, document.body.scrollHeight/1.5);")
                 time.sleep(1)
                 
-                WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, "li.product-base")))
+                # Check if item elements are present or if page loaded a firewall challenge instead
+                WebDriverWait(driver, 12).until(EC.presence_of_element_located((By.CSS_SELECTOR, "li.product-base")))
                 
                 soup = BeautifulSoup(driver.page_source, "html.parser")
                 products = soup.select("li.product-base")
@@ -171,12 +170,17 @@ def run_live_scraper(keywords):
                             break
                     
                     if not found_cult:
-                        row = [keyword_clean, "No", "No TOS", "No TOS", "No TOS", "", "N/A", "Outside Page 1"]
+                        row = [keyword_clean, "No", "Outside Page 1", "Outside Page 1", "None", "", "N/A", "Outside Page 1"]
                 else:
-                    row = [keyword_clean, "No", "N/A", "N/A", "N/A", "", "N/A", "No Results"]
+                    row = [keyword_clean, "No", "N/A", "N/A", "None", "", "N/A", "No Results Found"]
 
             except Exception as item_err:
-                row = [keyword_clean, "Error", "N/A", "N/A", "N/A", "", "N/A", f"Error: {str(item_err)[:20]}"]
+                err_str = str(item_err)
+                if "TimeoutException" in type(item_err).__name__ or "Message:" in err_str:
+                    status_desc = "Blocked by Cloudflare/Anti-Bot"
+                else:
+                    status_desc = f"Error: {err_str[:22]}"
+                row = [keyword_clean, "No", "Security Filtered", "Data Blocked", "None", "", "N/A", status_desc]
 
             all_results.append(row)
             
@@ -204,7 +208,6 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# Control Input Panel Card Configuration
 with st.expander("⌨️ Configure Query Targets & Settings", expanded=True):
     input_text = st.text_area(
         label="Enter target terms (One keyword string per line description layout):",
@@ -225,7 +228,6 @@ if run_btn:
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# Data Display Render Loop Block
 if os.path.exists(OUTPUT_CSV):
     try:
         df = pd.read_csv(OUTPUT_CSV)
@@ -237,7 +239,6 @@ if os.path.exists(OUTPUT_CSV):
         org_hits  = len(df[df["Listing_Type"].astype(str).str.upper() == "ORGANIC"])
         share_pct = (top4_hits / total_kws * 100) if total_kws > 0 else 0.0
 
-        # Injecting Clean Styled KPI Cards Grid
         st.markdown(
             f"""
             <div class="analytics-container">
@@ -252,17 +253,15 @@ if os.path.exists(OUTPUT_CSV):
 
         st.subheader("📋 Search Optimization Activity Log")
         
-        # Build clean custom item cards line by line safely handling mathematical NaN values
         for _, row in df.iterrows():
             is_t4 = str(row['Cult_In_Top_4']).upper() == 'YES'
-            is_nf = "NOT FOUND" in str(row['Status']).upper() or "NO RESULTS" in str(row['Status']).upper() or "OUTSIDE PAGE 1" in str(row['Status']).upper()
+            is_nf = "NOT FOUND" in str(row['Status']).upper() or "NO RESULTS" in str(row['Status']).upper() or "OUTSIDE" in str(row['Status']).upper() or "BLOCKED" in str(row['Status']).upper()
             
             pill_class = "pill-green" if is_t4 else ("pill-orange" if not is_nf else "pill-red")
             status_txt = "TOP 4 COVERED" if is_t4 else ("BELOW TOP 4" if not is_nf else "NOT LOCATED")
             
-            # ─── SAFELY HANDLE THE RANK POSITION INT CONVERSION ───
             raw_rank = row['Rank_Position']
-            if pd.notna(raw_rank) and str(raw_rank).strip() != "" and str(raw_rank).strip().lower() != "none":
+            if pd.notna(raw_rank) and str(raw_rank).strip() != "" and str(raw_rank).strip().lower() != "none" and str(raw_rank).strip() != "":
                 try:
                     rank_display = f"#{int(float(raw_rank))}"
                 except:
@@ -272,7 +271,6 @@ if os.path.exists(OUTPUT_CSV):
                 
             style_id_display = str(row['Style_ID']).strip() if pd.notna(row['Style_ID']) and str(row['Style_ID']).strip() != "" else "None"
             
-            # Escape strings cleanly to prevent markup breakdown injections
             clean_term = str(row['Search_Term']).replace('"', '&quot;')
             clean_brand = str(row['Brand_Found']).replace('"', '&quot;')
             clean_prod = str(row['Product_Name']).replace('"', '&quot;')
@@ -289,7 +287,7 @@ if os.path.exists(OUTPUT_CSV):
                         <div class="meta-item"><div class="meta-label">Brand Found</div><div class="meta-value">{clean_brand}</div></div>
                         <div class="meta-item"><div class="meta-label">Grid Ranking</div><div class="meta-value"><span class="code-style">{rank_display}</span> ({row['Listing_Type']})</div></div>
                         <div class="meta-item"><div class="meta-label">Myntra Style ID</div><div class="meta-value class="code-style"">{style_id_display}</div></div>
-                        <div class="meta-item"><div class="meta-label">Engine Diagnosis</div><div class="meta-value" style="font-size:12px;">{clean_status_flag}</div></div>
+                        <div class="meta-item"><div class="meta-label">Engine Diagnosis</div><div class="meta-value" style="font-size:12px; color: #dc2626; font-weight: 500;">{clean_status_flag}</div></div>
                     </div>
                     <div style="margin-top: 12px; font-size: 13px; color: #475569;">
                         <span style="color: #94a3b8; font-weight: 500; font-size: 11px; text-transform: uppercase; display: block; margin-bottom: 2px;">Resolved Item Description</span>
