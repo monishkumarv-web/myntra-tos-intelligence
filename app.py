@@ -251,7 +251,8 @@ if os.path.exists(OUTPUT_CSV):
             unsafe_allow_html=True
         )
 
-st.subheader("📋 Search Optimization Activity Log")
+        # 🎯 FIX: Kept this inside the try block with matching 8-space indentation
+        st.subheader("📋 Search Optimization Activity Log")
         
         # Build clean custom item cards line by line safely handling mathematical NaN values
         for _, row in df.iterrows():
@@ -305,7 +306,6 @@ st.subheader("📋 Search Optimization Activity Log")
         st.error(f"Error compiling visual intelligence log: {read_err}")
 else:
     st.info("💡 Input target search configurations above and hit execute to populate live dashboard data streams.")
-
 <div style="margin-top: 12px; font-size: 13px; color: #475569;">
                         <span style="color: #94a3b8; font-weight: 500; font-size: 11px; text-transform: uppercase; display: block; margin-bottom: 2px;">Resolved Item Description</span>
                         {clean_prod}
