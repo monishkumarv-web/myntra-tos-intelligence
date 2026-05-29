@@ -16,13 +16,18 @@ import platform
 import requests
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 🏢 STREAMLIT CONFIG & GLOBAL THEMING
+# 🔑 ENTER YOUR MASTER PROXY KEY HERE ONCE
 # ─────────────────────────────────────────────────────────────────────────────
-st.set_page_config(page_title="Myntra TOS Intelligence Dashboard", layout="wide")
+# Go to scraperapi.com, create a free account in 10 seconds (no credit card), 
+# and paste your API key here. Your users will NEVER see this or have to type it!
+SCRAPERAPI_KEY = "b38c9824416ae6e528b18e75a83a4d9b"
 
+# 🏢 STREAMLIT CONFIG & GLOBAL CONFIG
+st.set_page_config(page_title="Myntra TOS Intelligence Dashboard", layout="wide")
 OUTPUT_CSV   = "dashboard_cache.csv"
 TARGET_BRAND = "CULT"
 
+# Inject Custom SaaS CSS Stylesheet
 st.markdown(
     """
     <style>
@@ -60,7 +65,7 @@ st.markdown(
 )
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 🛡️ BS4 DATA PARSING LOGIC CORE (UNIFIED ACROSS BOTH PATHS)
+# 🛡️ UNIFIED DATA PARSING ENGINE
 # ─────────────────────────────────────────────────────────────────────────────
 def parse_myntra_html(html_content, keyword_clean):
     soup = BeautifulSoup(html_content, "html.parser")
@@ -100,23 +105,26 @@ def parse_myntra_html(html_content, keyword_clean):
     return [keyword_clean, "No", "N/A", "N/A", "None", "", "N/A", "No Products Found"]
 
 # ─────────────────────────────────────────────────────────────────────────────
-# ⚙️ ENGINE CONTROLLER LAYER (DYNAMIC ROUTING VIA METHOD SELECTION)
+# ⚙️ AUTO-SENSING AUTOMATION ROUTING ENGINE
 # ─────────────────────────────────────────────────────────────────────────────
-def run_live_scraper(keywords, mode, api_key=None):
+def run_live_scraper(keywords):
     if not keywords:
-        st.warning("⚠️ Please configure target queries to scan.")
+        st.warning("⚠️ Please enter target terms to run scan loops.")
         return False
 
     if os.path.exists(OUTPUT_CSV):
         try: os.remove(OUTPUT_CSV)
         except: pass
 
+    # 🤖 AUTO-DETECTION: Windows laptop means local testing. Linux means Streamlit Cloud production.
+    is_local_machine = (platform.system() == "Windows")
+    
     progress_bar = st.progress(0.0)
     status_text = st.empty()
     all_results = []
-    
     driver = None
-    if mode == "⚡ Local Desktop Mode (Direct Selenium)":
+    
+    if is_local_machine:
         options = Options()
         options.add_argument("--headless=new")       
         options.add_argument("--disable-gpu")
@@ -124,61 +132,46 @@ def run_live_scraper(keywords, mode, api_key=None):
         options.add_argument("--disable-dev-shm-usage")
         options.add_argument("--window-size=1920,1080")
         options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
-        options.add_argument("--disable-blink-features=AutomationControlled")
-        options.add_experimental_option("excludeSwitches", ["enable-automation"])
-        options.add_experimental_option('useAutomationExtension', False)
-        
-        if platform.system() == "Windows":
-            # Native driver discovery mode for your local machine execution
-            driver = webdriver.Chrome(options=options)
-        else:
-            options.binary_location = "/usr/bin/chromium"
-            service = Service("/usr/bin/chromedriver")
-            driver = webdriver.Chrome(service=service, options=options)
-            
-        try:
-            driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
-                "source": "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
-            })
-        except: pass
+        driver = webdriver.Chrome(options=options)
 
-    # Execution Loop
     try:
         for idx, keyword in enumerate(keywords, start=1):
             keyword_clean = keyword.strip()
             if not keyword_clean: continue
             
-            status_text.markdown(f"⏳ **Processing routing index ({idx}/{len(keywords)}):** `{keyword_clean}`...")
+            status_text.markdown(f"⏳ **Scanning Matrix Item ({idx}/{len(keywords)}):** `{keyword_clean}`...")
             encoded_query = urllib.parse.quote(keyword_clean)
             search_url = f"https://www.myntra.com/{encoded_query}?rawQuery={encoded_query}"
             
-            row = [keyword_clean, "No", "Security Filtered", "Data Blocked", "None", "", "N/A", "Engine Timeout"]
+            row = [keyword_clean, "No", "Network Timeout", "Data Incomplete", "None", "", "N/A", "Execution Interrupted"]
             
             try:
-                if mode == "⚡ Local Desktop Mode (Direct Selenium)":
+                if is_local_machine:
+                    # ⚡ LOCAL OPERATION PATH (Direct Selenium)
                     driver.get(search_url)
-                    time.sleep(4.5)
+                    time.sleep(4)
                     driver.execute_script("window.scrollTo(0, document.body.scrollHeight/3);")
                     WebDriverWait(driver, 8).until(EC.presence_of_element_located((By.CSS_SELECTOR, "li.product-base")))
-                    html_source = driver.page_source
-                    row = parse_myntra_html(html_source, keyword_clean)
+                    row = parse_myntra_html(driver.page_source, keyword_clean)
                 else:
-                    # PRO CLOUD MODE: Route query requests entirely outside of blocked datacenter IPs
-                    proxy_gateway_url = f"https://api.scraperapi.com?api_key={api_key}&url={urllib.parse.quote(search_url)}"
-                    res = requests.get(proxy_gateway_url, timeout=30)
-                    if res.status_code == 200:
-                        row = parse_myntra_html(res.text, keyword_clean)
+                    # 🌐 CLOUD OPERATION PATH (Invisible Automated Firewall Bypass)
+                    if not SCRAPERAPI_KEY or "YOUR_PASTED" in SCRAPERAPI_KEY:
+                        row = [keyword_clean, "No", "Configuration Error", "Missing API Master Key Token", "None", "", "N/A", "Setup Incomplete"]
                     else:
-                        row = [keyword_clean, "No", "API Gateway Error", f"HTTP Status {res.status_code}", "None", "", "N/A", "Proxy Limit Hit"]
-                        
+                        proxy_url = f"https://api.scraperapi.com?api_key={SCRAPERAPI_KEY}&url={urllib.parse.quote(search_url)}"
+                        res = requests.get(proxy_url, timeout=30)
+                        if res.status_code == 200:
+                            row = parse_myntra_html(res.text, keyword_clean)
+                        else:
+                            row = [keyword_clean, "No", "Proxy Error", f"HTTP {res.status_code}", "None", "", "N/A", "Gateway Rejection"]
+                            
             except Exception as e:
                 err_str = str(e)
-                status_desc = "Blocked by Cloudflare/Anti-Bot" if "TimeoutException" in type(e).__name__ or "Message" in err_str else f"Error: {err_str[:20]}"
+                status_desc = "Blocked by Firewall" if "TimeoutException" in type(e).__name__ or "Message" in err_str else f"Error: {err_str[:20]}"
                 row = [keyword_clean, "No", "Security Filtered", "Data Blocked", "None", "", "N/A", status_desc]
 
             all_results.append(row)
-            df_running = pd.DataFrame(all_results, columns=["Search_Term", "Cult_In_Top_4", "Brand_Found", "Product_Name", "Style_ID", "Rank_Position", "Listing_Type", "Status"])
-            df_running.to_csv(OUTPUT_CSV, index=False)
+            pd.DataFrame(all_results, columns=["Search_Term", "Cult_In_Top_4", "Brand_Found", "Product_Name", "Style_ID", "Rank_Position", "Listing_Type", "Status"]).to_csv(OUTPUT_CSV, index=False)
             progress_bar.progress(idx / len(keywords))
             
     finally:
@@ -193,47 +186,22 @@ def run_live_scraper(keywords, mode, api_key=None):
 st.markdown(
     """
     <div class="dashboard-banner">
-        <h1>🎯 Myntra Share of Voice & TOS Intelligence Engine</h1>
-        <p>Enterprise cross-platform platform monitoring search landscape brand layouts securely across runtime environments.</p>
+        <h1>🎯 Myntra Share of Voice & Shareable Intelligence Dashboard</h1>
+        <p>Enterprise layout matrix monitoring brand position visibility smoothly across runtime environments.</p>
     </div>
     """,
     unsafe_allow_html=True
 )
 
-col_ctrl, col_up = st.columns([2, 1])
-
-with col_ctrl:
-    with st.expander("⌨️ Search Matrix Execution Control Panel", expanded=True):
-        input_text = st.text_area("Targets (One keyword per line):", value="yoga mat\nshaker\nsteel bottle\nduffle bag", height=100)
-        input_keywords = [line.strip() for line in input_text.split("\n") if line.strip()]
-        
-        engine_mode = st.radio(
-            "Select Processing Pipeline Architecture:",
-            ["⚡ Local Desktop Mode (Direct Selenium)", "🌐 Streamlit Cloud Mode (Cloudflare Bypass API)"],
-            help="Choose Cloud mode when running on live deployed servers to route through residential proxies."
-        )
-        
-        api_token = ""
-        if engine_mode == "🌐 Streamlit Cloud Mode (Cloudflare Bypass API)":
-            api_token = st.text_input("Provide ScraperAPI Key Token:", type="password", help="Sign up at ScraperAPI for a free key token (no credit card required).")
-            
-        run_btn = st.button("🚀 Execute Intelligence Pipeline Scan", type="primary", use_container_width=True)
-
-with col_up:
-    with st.expander("📂 Drop Target Snapshot Fallback", expanded=True):
-        st.write("Manually override layout grids by dropping your local cache data snapshot here.")
-        uploaded_file = st.file_uploader("Upload dashboard_cache.csv", type=["csv"])
-        if uploaded_file is not None:
-            pd.read_csv(uploaded_file).to_csv(OUTPUT_CSV, index=False)
-            st.success("Dashboard components populated via fallback upload stream.")
+with st.expander("⌨️ Target Query Grid Setup", expanded=True):
+    input_text = st.text_area("Targets (One keyword per line):", value="yoga mat\nshaker\nsteel bottle\nduffle bag", height=110)
+    input_keywords = [line.strip() for line in input_text.split("\n") if line.strip()]
+    run_btn = st.button("🚀 Run Live Visibility Diagnostic Scan", type="primary", use_container_width=True)
 
 if run_btn:
-    if engine_mode == "🌐 Streamlit Cloud Mode (Cloudflare Bypass API)" and not api_token:
-        st.error("❌ Operational requirements error: Cloud processing mode requires an authorized proxy token.")
-    else:
-        with st.spinner("Executing extraction sequences across target channels..."):
-            if run_live_scraper(input_keywords, engine_mode, api_token):
-                st.toast("Data processing matrix complete!", icon="🎉")
+    with st.spinner("Processing network extraction routines..."):
+        if run_live_scraper(input_keywords):
+            st.toast("Dashboard data mapping completed successfully!", icon="🎉")
 
 st.markdown("<br>", unsafe_allow_html=True)
 
@@ -262,7 +230,7 @@ if os.path.exists(OUTPUT_CSV):
         
         for _, row in df.iterrows():
             is_t4 = str(row['Cult_In_Top_4']).upper() == 'YES'
-            is_nf = any(x in str(row['Status']).upper() for x in ["NOT FOUND", "NO RESULTS", "OUTSIDE", "BLOCKED", "TIMEOUT", "FILTERED"])
+            is_nf = any(x in str(row['Status']).upper() for x in ["NOT FOUND", "NO RESULTS", "OUTSIDE", "BLOCKED", "TIMEOUT", "FILTERED", "ERROR"])
             
             pill_class = "pill-green" if is_t4 else ("pill-orange" if not is_nf else "pill-red")
             status_txt = "TOP 4 COVERED" if is_t4 else ("BELOW TOP 4" if not is_nf else "NOT LOCATED")
@@ -270,7 +238,7 @@ if os.path.exists(OUTPUT_CSV):
             raw_rank = row.get('Rank_Position')
             if pd.notna(raw_rank) and str(raw_rank).strip() != "" and str(raw_rank).strip().lower() not in ["none", "nan", "n/a"]:
                 try: rank_display = f"#{int(float(raw_rank))}"
-                except ValueError: rank_display = "—"
+                except: rank_display = "—"
             else: rank_display = "—"
                 
             style_id_display = str(row['Style_ID']).strip() if pd.notna(row['Style_ID']) and str(row['Style_ID']).strip() != "" else "None"
