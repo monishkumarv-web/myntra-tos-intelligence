@@ -251,17 +251,26 @@ if os.path.exists(OUTPUT_CSV):
             unsafe_allow_html=True
         )
 
-        st.subheader("📋 Search Optimization Activity Log")
+st.subheader("📋 Search Optimization Activity Log")
         
-        # Build clean custom item cards line by line cleanly with no string syntax hazards
+        # Build clean custom item cards line by line safely handling mathematical NaN values
         for _, row in df.iterrows():
             is_t4 = str(row['Cult_In_Top_4']).upper() == 'YES'
-            is_nf = "NOT FOUND" in str(row['Status']).upper() or "NO RESULTS" in str(row['Status']).upper()
+            is_nf = "NOT FOUND" in str(row['Status']).upper() or "NO RESULTS" in str(row['Status']).upper() or "OUTSIDE PAGE 1" in str(row['Status']).upper()
             
             pill_class = "pill-green" if is_t4 else ("pill-orange" if not is_nf else "pill-red")
             status_txt = "TOP 4 COVERED" if is_t4 else ("BELOW TOP 4" if not is_nf else "NOT LOCATED")
             
-            rank_display = f"#{int(row['Rank_Position'])}" if row['Rank_Position'] and str(row['Rank_Position']).strip() != "" else "N/A"
+            # ─── SAFELY HANDLE THE RANK POSITION INT CONVERSION ───
+            raw_rank = row['Rank_Position']
+            if pd.notna(raw_rank) and str(raw_rank).strip() != "" and str(raw_rank).strip().lower() != "none":
+                try:
+                    rank_display = f"#{int(float(raw_rank))}"
+                except:
+                    rank_display = "—"
+            else:
+                rank_display = "—"
+                
             style_id_display = str(row['Style_ID']).strip() if pd.notna(row['Style_ID']) and str(row['Style_ID']).strip() != "" else "None"
             
             # Escape strings cleanly to prevent markup breakdown injections
