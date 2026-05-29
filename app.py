@@ -8,7 +8,6 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
-from webdriver_manager.chrome import ChromeDriverManager
 import time
 import os
 import re
@@ -19,7 +18,8 @@ import urllib.parse
 # ─────────────────────────────────────────────────────────────────────────────
 st.set_page_config(page_title="Myntra TOS Intelligence Dashboard", layout="wide")
 
-OUTPUT_CSV   = r"C:\Users\monishkumar.v\Desktop\Scrapping\dashboard_cache.csv"
+# Fixed for Cloud Architecture: Using a relative path instead of local C:\ drive
+OUTPUT_CSV   = "dashboard_cache.csv"
 TARGET_BRAND = "CULT"
 
 # Inject Custom SaaS CSS Stylesheet
@@ -106,7 +106,6 @@ def run_live_scraper(keywords):
     driver = webdriver.Chrome(service=service, options=options)
     all_results = []
     
-    # ... (Keep the rest of your scraper loops exactly the same!)
     try:
         for idx, keyword in enumerate(keywords, start=1):
             keyword_clean = keyword.strip()
@@ -251,7 +250,6 @@ if os.path.exists(OUTPUT_CSV):
             unsafe_allow_html=True
         )
 
-        # 🎯 FIX: Kept this inside the try block with matching 8-space indentation
         st.subheader("📋 Search Optimization Activity Log")
         
         # Build clean custom item cards line by line safely handling mathematical NaN values
@@ -306,15 +304,3 @@ if os.path.exists(OUTPUT_CSV):
         st.error(f"Error compiling visual intelligence log: {read_err}")
 else:
     st.info("💡 Input target search configurations above and hit execute to populate live dashboard data streams.")
-<div style="margin-top: 12px; font-size: 13px; color: #475569;">
-                        <span style="color: #94a3b8; font-weight: 500; font-size: 11px; text-transform: uppercase; display: block; margin-bottom: 2px;">Resolved Item Description</span>
-                        {clean_prod}
-                    </div>
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
-            
-# ADD THESE TWO LINES AT THE VERY END OF YOUR FILE:
-except Exception as e:
-    st.error(f"Error compiling visual intelligence log: {e}")
