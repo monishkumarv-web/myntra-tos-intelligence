@@ -86,6 +86,7 @@ def run_live_scraper(keywords):
         except:
             pass
 
+    # 🔧 STREAMLIT CLOUD COMPATIBLE CHROME CONFIGURATION
     options = Options()
     options.add_argument("--headless=new")       
     options.add_argument("--disable-gpu")
@@ -93,13 +94,19 @@ def run_live_scraper(keywords):
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--window-size=1920,1080")
     options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
-
+    
+    # Point directly to the Linux package installs on the Streamlit server
+    options.binary_location = "/usr/bin/chromium"
+    service = Service("/usr/bin/chromedriver")
+    
     progress_bar = st.progress(0.0)
     status_text = st.empty()
 
-    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
+    # Launch driver natively without using ChromeDriverManager()
+    driver = webdriver.Chrome(service=service, options=options)
     all_results = []
-
+    
+    # ... (Keep the rest of your scraper loops exactly the same!)
     try:
         for idx, keyword in enumerate(keywords, start=1):
             keyword_clean = keyword.strip()
