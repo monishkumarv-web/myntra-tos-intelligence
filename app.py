@@ -8,22 +8,18 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
+from selenium_stealth import stealth
 import time
 import os
 import re
 import urllib.parse
-import platform
-import requests
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 🔑 ENTER YOUR MASTER PROXY KEY HERE ONCE
+# 🏢 STREAMLIT CONFIG & PORTABLE PATHING
 # ─────────────────────────────────────────────────────────────────────────────
-# Go to scraperapi.com, create a free account in 10 seconds (no credit card), 
-# and paste your API key here. Your users will NEVER see this or have to type it!
-SCRAPERAPI_KEY = "b38c9824416ae6e528b18e75a83a4d9b"
-
-# 🏢 STREAMLIT CONFIG & GLOBAL CONFIG
 st.set_page_config(page_title="Myntra TOS Intelligence Dashboard", layout="wide")
+
+# PORTABLE FIX: Uses local project workspace directory on both local machine and Streamlit Linux Cloud
 OUTPUT_CSV   = "dashboard_cache.csv"
 TARGET_BRAND = "CULT"
 
@@ -65,7 +61,7 @@ st.markdown(
 )
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 🛡️ UNIFIED DATA PARSING ENGINE
+# 🛡️ DATA PARSING ENGINE
 # ─────────────────────────────────────────────────────────────────────────────
 def parse_myntra_html(html_content, keyword_clean):
     soup = BeautifulSoup(html_content, "html.parser")
@@ -101,107 +97,108 @@ def parse_myntra_html(html_content, keyword_clean):
                 return [keyword_clean, "Yes" if rank <= 4 else "No", brand_name, product_name, style_id, rank, listing_type, status_msg]
         
         return [keyword_clean, "No", "Outside Page 1", "Outside Page 1", "None", "", "N/A", "Outside Page 1"]
-    
     return [keyword_clean, "No", "N/A", "N/A", "None", "", "N/A", "No Products Found"]
 
 # ─────────────────────────────────────────────────────────────────────────────
-# ⚙️ AUTO-SENSING AUTOMATION ROUTING ENGINE
+# ⚙️ STEALTH BROWSER INTERACTION AUTOMATION
 # ─────────────────────────────────────────────────────────────────────────────
 def run_live_scraper(keywords):
     if not keywords:
-        st.warning("⚠️ Please enter target terms to run scan loops.")
+        st.warning("⚠️ Please provide search keywords.")
         return False
 
     if os.path.exists(OUTPUT_CSV):
         try: os.remove(OUTPUT_CSV)
         except: pass
 
-    # 🤖 AUTO-DETECTION: Windows laptop means local testing. Linux means Streamlit Cloud production.
-    is_local_machine = (platform.system() == "Windows")
-    
     progress_bar = st.progress(0.0)
     status_text = st.empty()
     all_results = []
-    driver = None
     
-    if is_local_machine:
-        options = Options()
-        options.add_argument("--headless=new")       
-        options.add_argument("--disable-gpu")
-        options.add_argument("--no-sandbox")
-        options.add_argument("--disable-dev-shm-usage")
-        options.add_argument("--window-size=1920,1080")
-        options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
-        driver = webdriver.Chrome(options=options)
+    # Configure production headless options
+    options = Options()
+    options.add_argument("--headless=new")       
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-gpu")
+    options.add_argument("--disable-dev-shm-usage")
+    
+    # Wipe native automation signals evaluated by anti-bots
+    options.add_argument("--disable-blink-features=AutomationControlled")
+    options.add_experimental_option("excludeSwitches", ["enable-automation"])
+    options.add_experimental_option('useAutomationExtension', False)
+    options.add_argument("--window-size=1920,1080")
+    options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
+    
+    driver = webdriver.Chrome(options=options)
+    
+    # Apply stealth patches at the JavaScript runtime evaluation layer
+    stealth(
+        driver,
+        languages=["en-US", "en"],
+        vendor="Google Inc.",
+        platform="Win32",
+        webgl_vendor="Intel Inc.",
+        renderer="Intel Iris OpenGL Engine",
+        fix_hairline=True,
+    )
 
     try:
         for idx, keyword in enumerate(keywords, start=1):
             keyword_clean = keyword.strip()
             if not keyword_clean: continue
             
-            status_text.markdown(f"⏳ **Scanning Matrix Item ({idx}/{len(keywords)}):** `{keyword_clean}`...")
+            status_text.markdown(f"⏳ **Scraping Target ({idx}/{len(keywords)}):** `{keyword_clean}`...")
             encoded_query = urllib.parse.quote(keyword_clean)
             search_url = f"https://www.myntra.com/{encoded_query}?rawQuery={encoded_query}"
             
-            row = [keyword_clean, "No", "Network Timeout", "Data Incomplete", "None", "", "N/A", "Execution Interrupted"]
-            
             try:
-                if is_local_machine:
-                    # ⚡ LOCAL OPERATION PATH (Direct Selenium)
-                    driver.get(search_url)
-                    time.sleep(4)
-                    driver.execute_script("window.scrollTo(0, document.body.scrollHeight/3);")
-                    WebDriverWait(driver, 8).until(EC.presence_of_element_located((By.CSS_SELECTOR, "li.product-base")))
-                    row = parse_myntra_html(driver.page_source, keyword_clean)
-                else:
-                    # 🌐 CLOUD OPERATION PATH (Invisible Automated Firewall Bypass)
-                    if not SCRAPERAPI_KEY or "YOUR_PASTED" in SCRAPERAPI_KEY:
-                        row = [keyword_clean, "No", "Configuration Error", "Missing API Master Key Token", "None", "", "N/A", "Setup Incomplete"]
-                    else:
-                        proxy_url = f"https://api.scraperapi.com?api_key={SCRAPERAPI_KEY}&url={urllib.parse.quote(search_url)}"
-                        res = requests.get(proxy_url, timeout=30)
-                        if res.status_code == 200:
-                            row = parse_myntra_html(res.text, keyword_clean)
-                        else:
-                            row = [keyword_clean, "No", "Proxy Error", f"HTTP {res.status_code}", "None", "", "N/A", "Gateway Rejection"]
-                            
+                driver.get(search_url)
+                time.sleep(3) # Realistic loading delay
+                
+                # Simulate smooth user viewport scrolling to trigger content rendering
+                driver.execute_script("window.scrollTo(0, document.body.scrollHeight/4);")
+                time.sleep(1)
+                
+                WebDriverWait(driver, 7).until(EC.presence_of_element_located((By.CSS_SELECTOR, "li.product-base")))
+                row = parse_myntra_html(driver.page_source, keyword_clean)
+                
             except Exception as e:
                 err_str = str(e)
-                status_desc = "Blocked by Firewall" if "TimeoutException" in type(e).__name__ or "Message" in err_str else f"Error: {err_str[:20]}"
-                row = [keyword_clean, "No", "Security Filtered", "Data Blocked", "None", "", "N/A", status_desc]
+                status_desc = "Blocked or Missing Layout Element" if "TimeoutException" in type(e).__name__ else f"Error: {err_str[:25]}"
+                row = [keyword_clean, "No", "Filtered", "Verification Exception", "None", "", "N/A", status_desc]
 
             all_results.append(row)
             pd.DataFrame(all_results, columns=["Search_Term", "Cult_In_Top_4", "Brand_Found", "Product_Name", "Style_ID", "Rank_Position", "Listing_Type", "Status"]).to_csv(OUTPUT_CSV, index=False)
             progress_bar.progress(idx / len(keywords))
             
     finally:
-        if driver: driver.quit()
+        driver.quit()
         status_text.empty()
         progress_bar.empty()
     return True
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 🎨 APPLICATION FRONTEND LAYER
+# 🎨 STREAMLIT DASHBOARD RENDER LAYER
 # ─────────────────────────────────────────────────────────────────────────────
 st.markdown(
     """
     <div class="dashboard-banner">
-        <h1>🎯 Myntra Share of Voice & Shareable Intelligence Dashboard</h1>
-        <p>Enterprise layout matrix monitoring brand position visibility smoothly across runtime environments.</p>
+        <h1>🎯 Myntra Native Visibility & Share of Voice Engine</h1>
+        <p>Analyze search landscape layout data structures metrics automatically using native drivers.</p>
     </div>
     """,
     unsafe_allow_html=True
 )
 
-with st.expander("⌨️ Target Query Grid Setup", expanded=True):
-    input_text = st.text_area("Targets (One keyword per line):", value="yoga mat\nshaker\nsteel bottle\nduffle bag", height=110)
+with st.expander("⌨️ Search Configurations Input Console", expanded=True):
+    input_text = st.text_area("Targets (One search query per line):", value="yoga mat\nshaker\nsteel bottle\nduffle bag", height=120)
     input_keywords = [line.strip() for line in input_text.split("\n") if line.strip()]
-    run_btn = st.button("🚀 Run Live Visibility Diagnostic Scan", type="primary", use_container_width=True)
+    run_btn = st.button("🚀 Execute Intelligence Pipeline Scan", type="primary", use_container_width=True)
 
 if run_btn:
-    with st.spinner("Processing network extraction routines..."):
+    with st.spinner("Extracting search results data layout components..."):
         if run_live_scraper(input_keywords):
-            st.toast("Dashboard data mapping completed successfully!", icon="🎉")
+            st.toast("Data sync completed successfully!", icon="🎉")
 
 st.markdown("<br>", unsafe_allow_html=True)
 
@@ -226,7 +223,7 @@ if os.path.exists(OUTPUT_CSV):
             unsafe_allow_html=True
         )
 
-        st.subheader("📋 Search Optimization Activity Log")
+        st.subheader("📋 Search Optimization Activity Stream")
         
         for _, row in df.iterrows():
             is_t4 = str(row['Cult_In_Top_4']).upper() == 'YES'
@@ -235,8 +232,9 @@ if os.path.exists(OUTPUT_CSV):
             pill_class = "pill-green" if is_t4 else ("pill-orange" if not is_nf else "pill-red")
             status_txt = "TOP 4 COVERED" if is_t4 else ("BELOW TOP 4" if not is_nf else "NOT LOCATED")
             
+            # BULLETPROOF INTERPRETATION: Safely handles empty string or NaN float entries without crashing
             raw_rank = row.get('Rank_Position')
-            if pd.notna(raw_rank) and str(raw_rank).strip() != "" and str(raw_rank).strip().lower() not in ["none", "nan", "n/a"]:
+            if pd.notna(raw_rank) and str(raw_rank).strip() != "" and str(raw_rank).strip().lower() not in ["none", "nan", "n/a", "<na>"]:
                 try: rank_display = f"#{int(float(raw_rank))}"
                 except: rank_display = "—"
             else: rank_display = "—"
@@ -270,4 +268,6 @@ if os.path.exists(OUTPUT_CSV):
                 unsafe_allow_html=True
             )
     except Exception as read_err:
-        st.error(f"Error compiling visual intelligence log elements: {read_err}")
+        st.error(f"Error compiling visual dashboard layout segments: {read_err}")
+else:
+    st.info("💡 Input target configurations above and hit execute to populate live dashboard data streams.")
