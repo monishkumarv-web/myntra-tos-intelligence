@@ -12,6 +12,7 @@ import time
 import os
 import re
 import urllib.parse
+import platform
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 🏢 STREAMLIT CONFIG & GLOBAL THEMING
@@ -25,7 +26,7 @@ TARGET_BRAND = "CULT"
 st.markdown(
     """
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght=400;500;600;700&display=swap');
         .stApp { font-family: 'Inter', sans-serif; }
         .dashboard-banner { background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); color: #ffffff; padding: 32px; border-radius: 12px; margin-bottom: 30px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); }
         .dashboard-banner h1 { color: #ffffff !important; font-size: 28px; font-weight: 700; margin: 0; letter-spacing: -0.5px; }
@@ -48,7 +49,6 @@ st.markdown(
         .pill-green { background: #dcfce7 !important; color: #15803d !important; }
         .pill-orange { background: #ffedd5 !important; color: #c2410c !important; }
         .pill-red { background: #fee2e2 !important; color: #b91c1c !important; }
-        .pill-dark { background: #f1f5f9 !important; color: #334155 !important; font-family: monospace; }
         .meta-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
         .meta-item { font-size: 13px; color: #334155 !important; }
         .meta-label { color: #64748b !important; font-size: 11px; font-weight: 500; text-transform: uppercase; margin-bottom: 2px; }
@@ -60,18 +60,16 @@ st.markdown(
 )
 
 # ─────────────────────────────────────────────────────────────────────────────
-# ⚙️ AUTOMATION PIPELINE LAYER (SELENIUM CORE ENGINE WITH STEALTH PROPERTIES)
+# ⚙️ AUTOMATION PIPELINE LAYER (SELENIUM DYNAMIC CROSS-PLATFORM ENGINE)
 # ─────────────────────────────────────────────────────────────────────────────
 def run_live_scraper(keywords):
     if not keywords:
-        st.warning("⚠️ Please enter at least one target keyword row to scan.")
+        st.warning("⚠️ Please enter at least one target keyword row to scan description layouts.")
         return False
 
     if os.path.exists(OUTPUT_CSV):
-        try:
-            os.remove(OUTPUT_CSV)
-        except:
-            pass
+        try: os.remove(OUTPUT_CSV)
+        except: pass
 
     options = Options()
     options.add_argument("--headless=new")       
@@ -80,21 +78,24 @@ def run_live_scraper(keywords):
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--window-size=1920,1080")
     options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
-    
-    # 🕵️ INJECT ANTI-DETECTION STEALTH ARGUMENTS
     options.add_argument("--disable-blink-features=AutomationControlled")
     options.add_experimental_option("excludeSwitches", ["enable-automation"])
     options.add_experimental_option('useAutomationExtension', False)
     
-    options.binary_location = "/usr/bin/chromium"
-    service = Service("/usr/bin/chromedriver")
-    
+    current_os = platform.system()
     progress_bar = st.progress(0.0)
     status_text = st.empty()
 
-    driver = webdriver.Chrome(service=service, options=options)
+    # 🔄 DYNAMIC DRIVER PATH ALLOCATION BASED ON PLATFORM DETECTION
+    if current_os == "Windows":
+        # Local Machine Auto-Discovery Mode (Selenium 4 native feature)
+        driver = webdriver.Chrome(options=options)
+    else:
+        # Streamlit Cloud Deployment Architecture Path Configuration
+        options.binary_location = "/usr/bin/chromium"
+        service = Service("/usr/bin/chromedriver")
+        driver = webdriver.Chrome(service=service, options=options)
     
-    # Override navigator.webdriver signature flags via CDP
     try:
         driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
             "source": "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
@@ -111,7 +112,6 @@ def run_live_scraper(keywords):
                 continue
                 
             status_text.markdown(f"⏳ **Scraping item ({idx}/{len(keywords)}):** `{keyword_clean}`...")
-            
             encoded_query = urllib.parse.quote(keyword_clean)
             search_url = f"https://www.myntra.com/{encoded_query}?rawQuery={encoded_query}"
             
@@ -119,15 +119,12 @@ def run_live_scraper(keywords):
             
             try:
                 driver.get(search_url)
-                time.sleep(4.5)  # Slightly longer breathing room for Cloud routing
+                time.sleep(4.5)
                 
                 driver.execute_script("window.scrollTo(0, document.body.scrollHeight/3);")
                 time.sleep(1)
-                driver.execute_script("window.scrollTo(0, document.body.scrollHeight/1.5);")
-                time.sleep(1)
                 
-                # Check if item elements are present or if page loaded a firewall challenge instead
-                WebDriverWait(driver, 12).until(EC.presence_of_element_located((By.CSS_SELECTOR, "li.product-base")))
+                WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, "li.product-base")))
                 
                 soup = BeautifulSoup(driver.page_source, "html.parser")
                 products = soup.select("li.product-base")
@@ -147,8 +144,7 @@ def run_live_scraper(keywords):
                             if link_el and link_el.get("href"):
                                 href_str = link_el["href"]
                                 id_match = re.search(r"/(\d+)/buy", href_str) or re.search(r"/(\d+)(?:\.html)?$", href_str)
-                                if id_match:
-                                    style_id = id_match.group(1)
+                                if id_match: style_id = id_match.group(1)
                             
                             is_ad = False
                             if prod.select_one(".product-adBadge, [class*='adBadge'], .xcomm-ad-tag"):
@@ -176,17 +172,12 @@ def run_live_scraper(keywords):
 
             except Exception as item_err:
                 err_str = str(item_err)
-                if "TimeoutException" in type(item_err).__name__ or "Message:" in err_str:
-                    status_desc = "Blocked by Cloudflare/Anti-Bot"
-                else:
-                    status_desc = f"Error: {err_str[:22]}"
+                status_desc = "Blocked by Cloudflare/Anti-Bot" if "TimeoutException" in type(item_err).__name__ or "Message" in err_str else f"Error: {err_str[:22]}"
                 row = [keyword_clean, "No", "Security Filtered", "Data Blocked", "None", "", "N/A", status_desc]
 
             all_results.append(row)
-            
             df_running = pd.DataFrame(all_results, columns=["Search_Term", "Cult_In_Top_4", "Brand_Found", "Product_Name", "Style_ID", "Rank_Position", "Listing_Type", "Status"])
             df_running.to_csv(OUTPUT_CSV, index=False)
-            
             progress_bar.progress(idx / len(keywords))
 
         status_text.empty()
@@ -208,30 +199,34 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-with st.expander("⌨️ Configure Query Targets & Settings", expanded=True):
-    input_text = st.text_area(
-        label="Enter target terms (One keyword string per line description layout):",
-        value="cult sport shoes\ncult t-shirt\nrunning shoes",
-        height=120
-    )
-    
-    input_keywords = [line.strip() for line in input_text.split("\n") if line.strip()]
-    
-    st.write("")
-    run_btn = st.button("🚀 Execute Live Visibility Scan", type="primary", use_container_width=True)
+col_ctrl, col_up = st.columns([2, 1])
+
+with col_ctrl:
+    with st.expander("⌨️ Target Search Configurations", expanded=True):
+        input_text = st.text_area("Enter targets (One keyword string per line):", value="yoga mat\nshaker\nsteel bottle\nduffle bag", height=120)
+        input_keywords = [line.strip() for line in input_text.split("\n") if line.strip()]
+        run_btn = st.button("🚀 Execute Live Visibility Scan", type="primary", use_container_width=True)
+
+with col_up:
+    with st.expander("📂 Offline CSV Data Pipeline Fallback", expanded=True):
+        st.write("If the live cloud tracking engine gets security filtered, run locally and upload the file below.")
+        uploaded_file = st.file_uploader("Drop dashboard_cache.csv here", type=["csv"])
+        if uploaded_file is not None:
+            df_uploaded = pd.read_csv(uploaded_file)
+            df_uploaded.to_csv(OUTPUT_CSV, index=False)
+            st.success("Log updated from snapshot source file!")
 
 if run_btn:
-    with st.spinner("Executing secure browser session tracking routines..."):
-        success = run_live_scraper(input_keywords)
-        if success:
-            st.toast("Analytics extraction completed successfully!", icon="🎉")
+    with st.spinner("Executing secure tracking sessions..."):
+        if run_live_scraper(input_keywords):
+            st.toast("Analytics processing engine finished tasks!", icon="🎉")
 
 st.markdown("<br>", unsafe_allow_html=True)
 
+# 🎯 DATA RENDERING WORKFLOW PIPELINE LAYER
 if os.path.exists(OUTPUT_CSV):
     try:
         df = pd.read_csv(OUTPUT_CSV)
-        df["Rank_Position"] = df["Rank_Position"].replace({np.nan: None})
         
         total_kws = len(df)
         top4_hits = len(df[df["Cult_In_Top_4"].astype(str).str.upper() == "YES"])
@@ -255,16 +250,17 @@ if os.path.exists(OUTPUT_CSV):
         
         for _, row in df.iterrows():
             is_t4 = str(row['Cult_In_Top_4']).upper() == 'YES'
-            is_nf = "NOT FOUND" in str(row['Status']).upper() or "NO RESULTS" in str(row['Status']).upper() or "OUTSIDE" in str(row['Status']).upper() or "BLOCKED" in str(row['Status']).upper()
+            is_nf = any(x in str(row['Status']).upper() for x in ["NOT FOUND", "NO RESULTS", "OUTSIDE", "BLOCKED"])
             
             pill_class = "pill-green" if is_t4 else ("pill-orange" if not is_nf else "pill-red")
             status_txt = "TOP 4 COVERED" if is_t4 else ("BELOW TOP 4" if not is_nf else "NOT LOCATED")
             
-            raw_rank = row['Rank_Position']
-            if pd.notna(raw_rank) and str(raw_rank).strip() != "" and str(raw_rank).strip().lower() != "none" and str(raw_rank).strip() != "":
+            # 🛠️ FIXED CRASH: Completely safe translation wrapper processing strings or numeric inputs
+            raw_rank = row.get('Rank_Position')
+            if pd.notna(raw_rank) and str(raw_rank).strip() != "" and str(raw_rank).strip().lower() not in ["none", "nan", "n/a"]:
                 try:
                     rank_display = f"#{int(float(raw_rank))}"
-                except:
+                except ValueError:
                     rank_display = "—"
             else:
                 rank_display = "—"
@@ -287,7 +283,7 @@ if os.path.exists(OUTPUT_CSV):
                         <div class="meta-item"><div class="meta-label">Brand Found</div><div class="meta-value">{clean_brand}</div></div>
                         <div class="meta-item"><div class="meta-label">Grid Ranking</div><div class="meta-value"><span class="code-style">{rank_display}</span> ({row['Listing_Type']})</div></div>
                         <div class="meta-item"><div class="meta-label">Myntra Style ID</div><div class="meta-value class="code-style"">{style_id_display}</div></div>
-                        <div class="meta-item"><div class="meta-label">Engine Diagnosis</div><div class="meta-value" style="font-size:12px; color: #dc2626; font-weight: 500;">{clean_status_flag}</div></div>
+                        <div class="meta-item"><div class="meta-label">Engine Diagnosis</div><div class="meta-value" style="font-size:12px; color: {'#dc2626' if is_nf else '#16a34a'}; font-weight: 500;">{clean_status_flag}</div></div>
                     </div>
                     <div style="margin-top: 12px; font-size: 13px; color: #475569;">
                         <span style="color: #94a3b8; font-weight: 500; font-size: 11px; text-transform: uppercase; display: block; margin-bottom: 2px;">Resolved Item Description</span>
