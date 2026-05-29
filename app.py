@@ -305,3 +305,16 @@ st.subheader("📋 Search Optimization Activity Log")
         st.error(f"Error compiling visual intelligence log: {read_err}")
 else:
     st.info("💡 Input target search configurations above and hit execute to populate live dashboard data streams.")
+
+<div style="margin-top: 12px; font-size: 13px; color: #475569;">
+                        <span style="color: #94a3b8; font-weight: 500; font-size: 11px; text-transform: uppercase; display: block; margin-bottom: 2px;">Resolved Item Description</span>
+                        {clean_prod}
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+            
+# ADD THESE TWO LINES AT THE VERY END OF YOUR FILE:
+except Exception as e:
+    st.error(f"Error compiling visual intelligence log: {e}")
